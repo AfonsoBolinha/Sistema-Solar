@@ -36,6 +36,10 @@ float escala=3.0f;
 // Vertex buffer object (Sol)
 GLuint vertexbuffer;
 
+GLuint vertexbufferSol;
+GLuint colorbufferSol;
+GLuint SolVAO;
+
 GLuint vertexbufferMercurio;
 GLuint colorbufferMercurio;
 GLuint MercurioVAO;
@@ -75,6 +79,7 @@ GLuint NeptunoVAO;
 GLuint colorbuffer;
 // lighting
 glm::vec3 lightPos(0.0f, 0.0f, 0.0f);
+glm::mat4 modelSol = glm::mat4(1.0f);
 glm::mat4 model = glm::mat4(1.0f);
 glm::mat4 modelMercurio = glm::mat4(1.0f);
 
@@ -87,6 +92,12 @@ std::vector< glm::vec2 > uvs;
 std::vector< glm::vec3 > normals; // Won't be used at the moment.
 std::vector< glm::vec3 > vertices;
 glm::vec3 objectPosition = glm::vec3(5.8f/escala, 0.0f, 0.0f);
+
+std::vector< glm::vec3 > verticesSol;
+std::vector< glm::vec2 > uvsSol;
+std::vector< glm::vec3 > normalsSol;
+glm::vec3 solPosition = glm::vec3(5.8f/escala, 0.0f, 0.0f);
+bool resSol = loadOBJ("Planetas/Sol.obj", verticesSol, uvsSol, normalsSol);
 
 std::vector< glm::vec3 > verticesMercurio;
 std::vector< glm::vec2 > uvsMercurio;
@@ -154,6 +165,7 @@ bool resNeptuno = loadOBJ("Planetas/Neptuno.obj", verticesNeptuno, uvsNeptuno, n
 //glm::vec3 rotatePosition = glm::vec3(0.0f, 0.0f, 0.0f);
 GLfloat delta = 0.00f;
 GLfloat angulo = 0.0f;
+
 GLfloat anguloMercurio = 0.0f;
 GLfloat anguloVenus = 0.0f;
 GLfloat anguloTerra = 0.0f;
@@ -164,16 +176,17 @@ GLfloat anguloSaturno = 0.0f;
 GLfloat anguloUrano = 0.0f;
 GLfloat anguloNeptuno = 0.0f;
 
+float speedScale=1.0f;
 
-float MercurioRotationSpeed=0.041477f;
-float VenusRotationSpeed=0.01622;
-float TerraRotationSpeed = 0.01f;
-float LuaRotationSpeed = 0.1f;
-float MarteRotationSpeed = 0.0053129548762736535662299854439592f;
-float JupiterRotationSpeed = 0.0008425669436749769159741458910434f;
-float SaturnoRotationSpeed = 0.000339219330855018587360594795539f;
-float UranoRotationSpeed = 0.0001189661353932401160327238355986f;
-float NeptunoRotationSpeed = 0.0000606413025419504901146369828875f;
+float MercurioRotationSpeed=0.041477f * speedScale;
+float VenusRotationSpeed=0.01622 * speedScale;
+float TerraRotationSpeed = 0.01f * speedScale;
+float LuaRotationSpeed = 0.1f * speedScale;
+float MarteRotationSpeed = 0.0053129548762736535662299854439592f * speedScale;
+float JupiterRotationSpeed = 0.0008425669436749769159741458910434f * speedScale;
+float SaturnoRotationSpeed = 0.000339219330855018587360594795539f * speedScale;
+float UranoRotationSpeed = 0.0001189661353932401160327238355986f * speedScale;
+float NeptunoRotationSpeed = 0.0000606413025419504901146369828875f * speedScale;
 
 
 glm::vec3 calcularPosicaoLua(const glm::vec3& posicaoTerra, float anguloOrbitalLua, float raioOrbitalLua) {
@@ -262,12 +275,12 @@ int main()
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
     glEnableVertexAttribArray(1);
 
-    
+
     // second, configure the light's VAO (Sol stays the same; the vertices are the same for the light object which is also a 3D cube)
     unsigned int lightVAO;
     glGenVertexArrays(1, &lightVAO);
     glBindVertexArray(lightVAO);
-    
+
     glBindBuffer(GL_ARRAY_BUFFER, Sol);
     // note that we update the lamp's position attribute's stride to reflect the updated buffer data
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
@@ -444,7 +457,7 @@ int main()
         // ------
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        
+
         // be sure to activate shader when setting uniforms/drawing objects
         lightingShader.use();
         lightingShader.setVec3("objectColor", 0.996f, 0.0f, 0.1f);
@@ -460,23 +473,23 @@ int main()
         glm::mat4 view = camera.GetViewMatrix();
         lightingShader.setMat4("projection", projection);
         lightingShader.setMat4("view", view);
-        
+
         // world transformation
 
-        lightingShader.setMat4("model", model);
-        
-        
+        lightingShader.setMat4("model", modelSol);
+
+
         // also draw the lamp object
         lampShader.use();
         lampShader.setMat4("projection", projection);
         lampShader.setMat4("view", view);
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, lightPos);
-        model = glm::scale(model, glm::vec3(0.333f)); // a smaller cube
-        lampShader.setMat4("model", model);
-        
+        modelSol = glm::mat4(1.0f);
+        modelSol = glm::translate(modelSol, lightPos);
+        modelSol = glm::scale(modelSol, glm::vec3(0.333f)); // a smaller cube
+        lampShader.setMat4("model", modelSol);
+
         glBindVertexArray(lightVAO);
-        glDrawArrays(GL_TRIANGLES, 0, 100000*3);
+        glDrawArrays(GL_TRIANGLES, 0, 960*3);
 
         // Render Mercurio
         lightingShader.use();
@@ -694,7 +707,6 @@ void processInput(GLFWwindow *window)
     }
 
 
-    model = glm::translate(glm::mat4(1.0f), objectPosition);
     mercurioPosition = glm::vec3(glm::cos(anguloMercurio) * 5.8/escala, 0.0f, glm::sin(anguloMercurio) * 5.8/escala);
     venusPosition = glm::vec3(glm::cos(anguloVenus) * 10.8/escala, 0.0f, glm::sin(anguloVenus) * 10.8/escala);
     terraPosition = glm::vec3(glm::cos(anguloTerra) * 15.0/escala, 0.0f, glm::sin(anguloTerra) * 15.0/escala);
