@@ -164,16 +164,17 @@ GLfloat anguloSaturno = 0.0f;
 GLfloat anguloUrano = 0.0f;
 GLfloat anguloNeptuno = 0.0f;
 
+float speedScale=0.5f;
 
-float MercurioRotationSpeed=0.041477f;
-float VenusRotationSpeed=0.01622;
-float TerraRotationSpeed = 0.01f;
-float LuaRotationSpeed = 0.1f;
-float MarteRotationSpeed = 0.0053129548762736535662299854439592f;
-float JupiterRotationSpeed = 0.0008425669436749769159741458910434f;
-float SaturnoRotationSpeed = 0.000339219330855018587360594795539f;
-float UranoRotationSpeed = 0.0001189661353932401160327238355986f;
-float NeptunoRotationSpeed = 0.0000606413025419504901146369828875f;
+float MercurioRotationSpeed=0.041477f * speedScale;
+float VenusRotationSpeed=0.01622 * speedScale;
+float TerraRotationSpeed = 0.01f * speedScale;
+float LuaRotationSpeed = 0.1f * speedScale;
+float MarteRotationSpeed = 0.0053129548762736535662299854439592f * speedScale;
+float JupiterRotationSpeed = 0.0008425669436749769159741458910434f * speedScale;
+float SaturnoRotationSpeed = 0.000339219330855018587360594795539f * speedScale;
+float UranoRotationSpeed = 0.0001189661353932401160327238355986f * speedScale;
+float NeptunoRotationSpeed = 0.0000606413025419504901146369828875f * speedScale;
 
 
 glm::vec3 calcularPosicaoLua(const glm::vec3& posicaoTerra, float anguloOrbitalLua, float raioOrbitalLua) {
@@ -476,7 +477,7 @@ int main()
         lampShader.setMat4("model", model);
         
         glBindVertexArray(lightVAO);
-        glDrawArrays(GL_TRIANGLES, 0, 100000*3);
+        glDrawArrays(GL_TRIANGLES, 0, 960*3);
 
         // Render Mercurio
         lightingShader.use();
