@@ -247,7 +247,7 @@ int main()
     // ------------------------------------
     Shader lightingShader("shaders/2.1.basic_lighting.vs", "shaders/2.1.basic_lighting.fs");
     Shader lampShader("shaders/2.1.lamp.vs", "shaders/2.1.lamp.fs");
-    
+
     // set up vertex data (and buffer(s)) and configure vertex attributes
     // ------------------------------------------------------------------
 
@@ -314,6 +314,23 @@ int main()
     glGenBuffers(1, &colorbufferVenus);
     glBindBuffer(GL_ARRAY_BUFFER, colorbufferVenus);
     glBufferData(GL_ARRAY_BUFFER, verticesVenus.size() * sizeof(glm::vec3), &verticesVenus[0], GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+    glEnableVertexAttribArray(1);
+
+    //SOL
+    glGenVertexArrays(1, &SolVAO);
+    glGenBuffers(1, &vertexbufferSol);
+
+    glBindBuffer(GL_ARRAY_BUFFER, vertexbufferSol);
+    glBufferData(GL_ARRAY_BUFFER, verticesSol.size() * sizeof(glm::vec3), &verticesSol[0], GL_STATIC_DRAW);
+    glBindVertexArray(SolVAO);
+
+    glGenBuffers(1, &colorbufferSol);
+    glBindBuffer(GL_ARRAY_BUFFER, colorbufferSol);
+    glBufferData(GL_ARRAY_BUFFER, verticesSol.size() * sizeof(glm::vec3), &verticesSol[0], GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
     glEnableVertexAttribArray(0);
@@ -461,7 +478,7 @@ int main()
         // be sure to activate shader when setting uniforms/drawing objects
         lightingShader.use();
         lightingShader.setVec3("objectColor", 0.996f, 0.0f, 0.1f);
-        lightingShader.setVec3("lightColor", 0.996f, 0.674f, 0.337f);
+        lightingShader.setVec3("lightColor", 0.5f, 0.5f, 0.337f);
         lightingShader.setVec3("lightPos", lightPos);
         
         // view/projection transformations
@@ -488,7 +505,7 @@ int main()
         modelSol = glm::scale(modelSol, glm::vec3(0.333f)); // a smaller cube
         lampShader.setMat4("model", modelSol);
 
-        glBindVertexArray(lightVAO);
+        glBindVertexArray(SolVAO);
         glDrawArrays(GL_TRIANGLES, 0, 960*3);
 
         // Render Mercurio
