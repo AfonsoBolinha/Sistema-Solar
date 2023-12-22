@@ -9,7 +9,8 @@
 #include "objloader.hpp"
 #include "include/shader_m.h"
 #include "include/camera.h"
-
+#include <ft2build.h>
+#include FT_FREETYPE_H
 
 #include <iostream>
 
@@ -19,22 +20,22 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow *window);
 
 // settings
-const unsigned int SCR_WIDTH = 1920;
-const unsigned int SCR_HEIGHT = 1080;
+const unsigned int screenWidth = 1900;
+const unsigned int screenHeight = 500;
 
 // camera
 Camera camera(glm::vec3(0.0f, 0.0f, 10.0f));
-float lastX = SCR_WIDTH / 2.0f;
-float lastY = SCR_HEIGHT / 2.0f;
+float lastX = screenWidth / 2.0f;
+float lastY = screenHeight / 2.0f;
 bool firstMouse = true;
 
 // timing
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
-
 float escala=3.0f;
-// Vertex buffer object (Sol)
-GLuint vertexbuffer;
+
+FT_Face face;
+FT_Library ft;
 
 GLuint vertexbufferSol;
 GLuint colorbufferSol;
@@ -178,6 +179,7 @@ GLfloat anguloNeptuno = 0.0f;
 
 float speedScale=1.0f;
 
+
 float MercurioRotationSpeed=0.041477f * speedScale;
 float VenusRotationSpeed=0.01622 * speedScale;
 float TerraRotationSpeed = 0.01f * speedScale;
@@ -201,6 +203,111 @@ glm::vec3 calcularPosicaoLua(const glm::vec3& posicaoTerra, float anguloOrbitalL
     return glm::vec3(posX, posY, posZ);
 }
 
+bool checkPlanetClick(const glm::vec3& planetPosition, float planetRadius, const glm::vec3& clickRayOrigin, const glm::vec3& clickRayDirection) {
+    glm::vec3 oc = clickRayOrigin - planetPosition;
+    float a = glm::dot(clickRayDirection, clickRayDirection);
+    float b = 2.0f * glm::dot(oc, clickRayDirection);
+    float c = glm::dot(oc, oc) - planetRadius * planetRadius;
+    float discriminant = b * b - 4 * a * c;
+
+    return (discriminant > 0);
+}
+GLuint compileShader(GLenum type, const char* source) {
+    GLuint shader = glCreateShader(type);
+    glShaderSource(shader, 1, &source, NULL);
+    glCompileShader(shader);
+
+    return shader;
+}
+
+void renderText(const char *text, GLfloat x, GLfloat y, GLfloat fontSize, FT_Face face) {
+    // Criar shaders
+    const char* vertexShaderSource = "shaders/vertex_shader.glsl"; // Substitua com o código do vertex shader
+    const char* fragmentShaderSource = "shaders/fragment_shader.glsl"; // Substitua com o código do fragment shader
+    GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexShaderSource);
+    GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentShaderSource);
+    // Criar programa de shader
+    GLuint shaderProgram = glCreateProgram();
+    glAttachShader(shaderProgram, vertexShader);
+    glAttachShader(shaderProgram, fragmentShader);
+    glLinkProgram(shaderProgram);
+
+    FT_GlyphSlot g = face->glyph;
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    GLint textColorLoc = glGetUniformLocation(shaderProgram, "textColor");
+    glUseProgram(shaderProgram);
+    glUniform3f(textColorLoc, 1.0f, 1.0f, 1.0f); // Set text color
+
+    // Configurar o VBO (Vertex Buffer Object) e o VAO (Vertex Array Object)
+    GLuint VBO, VAO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+
+    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+
+    // Atributos de vértice (posição)
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (GLvoid*)0);
+    glEnableVertexAttribArray(0);
+
+    GLfloat xpos = x;
+    GLfloat ypos = y;
+
+    for (const char *p = text; *p; p++) {
+        if (FT_Load_Char(face, *p, FT_LOAD_RENDER)) {
+            continue;
+        }
+
+        GLfloat x2 = xpos + g->bitmap_left * fontSize;
+        GLfloat y2 = -ypos - g->bitmap_top * fontSize;
+        GLfloat w = g->bitmap.width * fontSize;
+        GLfloat h = g->bitmap.rows * fontSize;
+
+        GLfloat vertices[6][2] = {
+                {x2,     -y2},
+                {x2 + w, -y2},
+                {x2,     -y2 - h},
+                {x2,     -y2 - h},
+                {x2 + w, -y2},
+                {x2 + w, -y2 - h}
+        };
+
+        // Atualizar o conteúdo do buffer do VBO
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+        // Renderizar o caractere usando os vértices
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+
+        // Atualizar a posição para o próximo caractere
+        xpos += (g->advance.x >> 6) * fontSize;
+        ypos += (g->advance.y >> 6) * fontSize;
+    }
+
+    // Limpar configurações do OpenGL
+    glDisableVertexAttribArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+    glDeleteBuffers(1, &VBO);
+    glDeleteVertexArrays(1, &VAO);
+
+    glDisable(GL_BLEND);
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+    glUseProgram(0);
+    // Libere a face após usar
+    FT_Done_Face(face);
+    // Libere a biblioteca FreeType após concluir todas as operações
+    //FT_Done_FreeType(ft);
+}
+
+
+
+
+
+
 int main()
 {
     // glfw: initialize and configure
@@ -216,7 +323,7 @@ int main()
     
     // glfw window creation
     // --------------------
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(screenWidth, screenHeight, "LearnOpenGL", NULL, NULL);
     if (window == NULL)
     {
         std::cout << "Failed to create GLFW window" << std::endl;
@@ -238,7 +345,22 @@ int main()
         std::cout << "Failed to initialize GLAD" << std::endl;
         return -1;
     }
-    
+
+    // Inicialização do FreeType
+    if (FT_Init_FreeType(&ft)) {
+        std::cerr << "Erro ao inicializar FreeType" << std::endl;
+        return -1;
+    }
+
+    // Carregamento da face da fonte
+    if (FT_New_Face(ft, "SpaceGrotesk-Medium.ttf", 0, &face)) {
+        std::cerr << "Erro ao carregar a face da fonte" << std::endl;
+        return -1;
+    }
+    // Configurar tamanho da fonte
+    FT_Set_Pixel_Sizes(face, 0, 48);
+
+
     // configure global opengl state
     // -----------------------------
     glEnable(GL_DEPTH_TEST);
@@ -460,6 +582,19 @@ int main()
     // -----------
     while (!glfwWindowShouldClose(window))
     {
+        // Renderização de texto
+        renderText("Seu Texto Aqui", 1500.0f, 250.0f, 200.0f,face);  // Use o tamanho desejado
+
+
+        MercurioRotationSpeed=0.041477f * speedScale;
+        VenusRotationSpeed=0.01622 * speedScale;
+        TerraRotationSpeed = 0.01f * speedScale;
+        LuaRotationSpeed = 0.1f * speedScale;
+        MarteRotationSpeed = 0.0053129548762736535662299854439592f * speedScale;
+        JupiterRotationSpeed = 0.0008425669436749769159741458910434f * speedScale;
+        SaturnoRotationSpeed = 0.000339219330855018587360594795539f * speedScale;
+        UranoRotationSpeed = 0.0001189661353932401160327238355986f * speedScale;
+        NeptunoRotationSpeed = 0.0000606413025419504901146369828875f * speedScale;
         // per-frame time logic
         // --------------------
         float currentFrame = glfwGetTime();
@@ -486,7 +621,7 @@ int main()
         float nearPlane = 0.1f; // plano próximo
         float farPlane = 1000.0f; // plano distante
 
-        glm::mat4 projection = glm::perspective(glm::radians(fov), (float)SCR_WIDTH / (float)SCR_HEIGHT, nearPlane, farPlane);
+        glm::mat4 projection = glm::perspective(glm::radians(fov), (float)screenWidth / (float)screenHeight, nearPlane, farPlane);
         glm::mat4 view = camera.GetViewMatrix();
         lightingShader.setMat4("projection", projection);
         lightingShader.setMat4("view", view);
@@ -612,19 +747,19 @@ int main()
 
         // Render Saturno
         lightingShader.use();
-        lightingShader.setVec3("objectColor", 0.0f, 1.0f, 1.0f);  // Set color for Marte
+        lightingShader.setVec3("objectColor", 1.0f, 0.9f, 0.5f);  // Set color for Marte
         lightingShader.setVec3("lightColor", 1.0f, 1.0f, 1.0f);
         lightingShader.setVec3("lightPos", lightPos);
 
         // Set model matrix for Jupiter
         model = glm::translate(glm::mat4(1.0f), saturnoPosition);
-        model = glm::rotate(model, anguloSaturno, glm::vec3(0.0f, 0.0f, 1.0f));
+        model = glm::rotate(model, anguloSaturno, glm::vec3(0.0f, 1.0f, 0.0f));
         model = glm::scale(model, glm::vec3(escala));
         lightingShader.setMat4("model", model);
 
         // Bind Jupiter VAO and render
         glBindVertexArray(SaturnoVAO);
-        glDrawArrays(GL_TRIANGLES, 0, 960*3);
+        glDrawArrays(GL_TRIANGLES, 0, 3000*3);
         glBindVertexArray(0);  // Unbind Jupiter VAO
 
         // Render Urano
@@ -687,6 +822,17 @@ int main()
 // ---------------------------------------------------------------------------------------------------------
 void processInput(GLFWwindow *window)
 {
+    double xpos, ypos;
+    glfwGetCursorPos(window, &xpos, &ypos);
+
+    // Converta as coordenadas do mouse para um raio no espaço 3D
+    glm::vec4 viewport = glm::vec4(0.0f, 0.0f, screenWidth, screenHeight);
+    glm::vec3 clickRayOrigin, clickRayDirection;
+    float aspectRatio = static_cast<float>(screenWidth) / static_cast<float>(screenHeight);
+
+    clickRayOrigin = glm::unProject(glm::vec3(xpos, ypos, 0.0f), camera.GetViewMatrix(), glm::perspective(glm::radians(camera.Zoom), aspectRatio, 0.1f, 1000.0f), viewport);
+    clickRayDirection = glm::normalize(glm::unProject(glm::vec3(xpos, ypos, 1.0f), camera.GetViewMatrix(), glm::perspective(glm::radians(camera.Zoom), aspectRatio, 0.1f, 1000.0f), viewport) - clickRayOrigin);
+
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
 
@@ -698,6 +844,19 @@ void processInput(GLFWwindow *window)
         camera.ProcessKeyboard(LEFT, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         camera.ProcessKeyboard(RIGHT, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS){
+        speedScale=speedScale+0.01f;
+    }
+    if ((glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) && speedScale>0.01f ){
+        speedScale=speedScale-0.01f;
+    }
+    if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
+        camera.MovementSpeed+=0.5f;
+    if ((glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) && (camera.MovementSpeed>0.5f))
+        camera.MovementSpeed-=0.1f;
+
+
+
 
     // Rotação do objeto
     if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) {
@@ -733,6 +892,58 @@ void processInput(GLFWwindow *window)
     uranoPosition = glm::vec3(glm::cos(anguloUrano) * 287.0/escala, 0.0f, glm::sin(anguloUrano) * 287.0/escala);
     neptunoPosition = glm::vec3(glm::cos(anguloNeptuno) * 450.0/escala, 0.0f, glm::sin(anguloNeptuno) * 450.0/escala);
     luaPosition= calcularPosicaoLua(terraPosition,anguloLua,0.5f);
+
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+
+        // Verifique se algum planeta foi clicado
+        if (checkPlanetClick(mercurioPosition, 0.1f, clickRayOrigin, clickRayDirection)) {
+            // Ação quando Mercurio é clicado
+            std::cout << "\n";
+            std::cout << "Planeta: Mercúrio\nDiametro: 4,879.4 KM\nMassa: 3.285 × 10^23 KG\nDuraçao do dia: 88 d " << std::endl;
+        }
+        // Verifique se algum planeta foi clicado
+        if (checkPlanetClick(venusPosition, 0.1f, clickRayOrigin, clickRayDirection)) {
+            // Ação quando Venus é clicado
+            std::cout << "\n";
+            std::cout << "Planeta: Vênus\nDiametro: 12,104 KM\nMassa: 4.867 × 10^24 KG\nDuraçao do dia: 243d " << std::endl;
+        }
+        // Verifique se algum planeta foi clicado
+        if (checkPlanetClick(terraPosition, 0.1f, clickRayOrigin, clickRayDirection)) {
+            // Ação quando Terra é clicado
+            std::cout << "\n";
+            std::cout << "Planeta: Terra\nDiametro: 12,742 KM\nMassa: 5.972 × 10^24 KG\nDuraçao do dia: 1d :) " << std::endl;
+        }
+        // Verifique se algum planeta foi clicado
+        if (checkPlanetClick(martePosition, 0.1f, clickRayOrigin, clickRayDirection)) {
+            // Ação quando Marte é clicado
+            std::cout << "\n";
+            std::cout << "Planeta: Marte\nDiametro: 6,779 KM\nMassa: 6.39 × 10^23 KG\nDuraçao do dia: 1d 0h 37m" << std::endl;
+        }
+        // Verifique se algum planeta foi clicado
+        if (checkPlanetClick(jupiterPosition, 1.0f, clickRayOrigin, clickRayDirection)) {
+            // Ação quando Jupiter é clicado
+            std::cout << "\n";
+            std::cout << "Planeta: Jupiter\nDiametro: 139,820 KM\nMassa: 1.898 × 10^27 KG\nDuraçao do dia: 0d 9h 56m" << std::endl;
+        }
+        // Verifique se algum planeta foi clicado
+        if (checkPlanetClick(saturnoPosition, 0.5f, clickRayOrigin, clickRayDirection)) {
+            // Ação quando Saturno é clicado
+            std::cout << "\n";
+            std::cout << "Planeta: Saturno\nDiametro: 116,460 KM\nMassa: 5.683 × 10^26 KG\nDuraçao do dia: 0d 10h 34m" << std::endl;
+        }
+        // Verifique se algum planeta foi clicado
+        if (checkPlanetClick(uranoPosition, 0.5f, clickRayOrigin, clickRayDirection)) {
+            // Ação quando Uranos é clicado
+            std::cout << "\n";
+            std::cout << "Planeta: Urano\nDiametro: 50,724 KM\nMassa: 8.681 × 10^25 KG\nDuraçao do dia: 0d 17h 14m" << std::endl;
+        }
+        // Verifique se algum planeta foi clicado
+        if (checkPlanetClick(neptunoPosition, 0.5f, clickRayOrigin, clickRayDirection)) {
+            // Ação quando Neptuno é clicado
+            std::cout << "\n";
+            std::cout << "Planeta: Neptuno\nDiametro: 49,244 KM\nMassa: 1.024 × 10^26 KG\nDuraçao do dia: 0d 16h 6m" << std::endl;
+        }
+    }
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
